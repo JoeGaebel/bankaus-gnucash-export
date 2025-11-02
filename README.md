@@ -86,7 +86,7 @@ The script makes the following minimal modifications to the exported OFX file:
    - **Click the chevron/arrow** next to your account name to expand the transactions view
    - Open your browser's **Developer Tools** (F12 or Cmd+Option+I on Mac)
    - Go to the **Network** tab
-   - Look for a request to `platform.axd?u=transaction%2FGetTransactionHistory` or similar
+   - Look for the last request to `platform.axd`
    - **Right-click** on the request → **Copy** → **Copy as cURL**
    - The cURL command is now in your clipboard
 
