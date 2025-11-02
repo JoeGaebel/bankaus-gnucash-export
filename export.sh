@@ -3,12 +3,32 @@
 # Bank Australia Transaction Export Script
 # Step 1: Get month and calculate date range
 
-# Get current year
-CURRENT_YEAR=$(date +%Y)
+# Check for debug flag
+DEBUG=false
+if [ "$1" = "--debug" ]; then
+    DEBUG=true
+fi
 
-# Prompt for month (1-12)
-echo "Enter month (1-12):"
+# Get current year and month
+CURRENT_YEAR=$(date +%Y)
+CURRENT_MONTH=$(date +%-m)  # %-m removes leading zero
+
+# Calculate last month as default
+if [ "$CURRENT_MONTH" -eq 1 ]; then
+    DEFAULT_MONTH=12
+    DEFAULT_YEAR=$((CURRENT_YEAR - 1))
+else
+    DEFAULT_MONTH=$((CURRENT_MONTH - 1))
+    DEFAULT_YEAR=$CURRENT_YEAR
+fi
+
+# Prompt for month (1-12) with default to last month
+echo "Enter month (1-12, default: $DEFAULT_MONTH):"
 read -r MONTH
+MONTH=${MONTH:-$DEFAULT_MONTH}
+
+# Remove leading zeros for numeric comparison (handles inputs like "09")
+MONTH=$((10#$MONTH))
 
 # Validate month input
 if ! [[ "$MONTH" =~ ^[0-9]+$ ]] || [ "$MONTH" -lt 1 ] || [ "$MONTH" -gt 12 ]; then
@@ -17,9 +37,9 @@ if ! [[ "$MONTH" =~ ^[0-9]+$ ]] || [ "$MONTH" -lt 1 ] || [ "$MONTH" -gt 12 ]; th
 fi
 
 # Prompt for year with default
-echo "Enter year (default: $CURRENT_YEAR):"
+echo "Enter year (default: $DEFAULT_YEAR):"
 read -r YEAR
-YEAR=${YEAR:-$CURRENT_YEAR}
+YEAR=${YEAR:-$DEFAULT_YEAR}
 
 # Validate year input
 if ! [[ "$YEAR" =~ ^[0-9]{4}$ ]]; then
@@ -65,11 +85,13 @@ fi
 
 END_DATE="${YEAR}-${MONTH_PADDED}-${LAST_DAY}T00:00:00.000"
 
-echo ""
-echo "Date range calculated:"
-echo "  Begin Date: $BEGIN_DATE"
-echo "  End Date:   $END_DATE"
-echo ""
+if [ "$DEBUG" = true ]; then
+    echo ""
+    echo "Date range calculated:"
+    echo "  Begin Date: $BEGIN_DATE"
+    echo "  End Date:   $END_DATE"
+    echo ""
+fi
 
 # Step 2: Get curl command and extract authentication parameters
 echo "Save your curl command to a file called 'curl.txt' in the current directory."
@@ -116,12 +138,14 @@ if [ -z "$ACCOUNT_NUMBER" ]; then
     echo "Warning: Could not extract AccountNumber from curl command"
 fi
 
-echo ""
-echo "Authentication parameters extracted successfully:"
-echo "  Cookie: ${COOKIE:0:100}..." # Show first 100 chars
-echo "  CSRF Token: $CSRF_TOKEN"
-echo "  Account Number: $ACCOUNT_NUMBER"
-echo ""
+if [ "$DEBUG" = true ]; then
+    echo ""
+    echo "Authentication parameters extracted successfully:"
+    echo "  Cookie: ${COOKIE:0:100}..." # Show first 100 chars
+    echo "  CSRF Token: $CSRF_TOKEN"
+    echo "  Account Number: $ACCOUNT_NUMBER"
+    echo ""
+fi
 
 # Step 3: Fetch transactions for the specified month
 echo "Fetching transactions for ${YEAR}-${MONTH_PADDED}..."
@@ -189,6 +213,7 @@ fetch_payment_details() {
     local cookie=$3
     local csrf=$4
     local temp_dir=$5
+    local debug=$6
 
     DETAILS=$(curl -s 'https://digital.bankaust.com.au/platform.axd?u=npp%2FGetPayment' \
       --compressed \
@@ -224,7 +249,9 @@ fetch_payment_details() {
     echo "${txn_id}|${DESCRIPTION}" > "${temp_dir}/${clean_txn_id}.txt"
 
     # Also log to stderr for debugging (visible in terminal)
-    echo "  Fetched: TxnID=$txn_id -> Description='$DESCRIPTION'" >&2
+    if [ "$debug" = "true" ]; then
+        echo "  Fetched: TxnID=$txn_id -> Description='$DESCRIPTION'" >&2
+    fi
 }
 
 export -f fetch_payment_details
@@ -237,14 +264,16 @@ if [ $NPP_COUNT -gt 0 ]; then
     # Convert to array to avoid subshell issues with pipe
     while IFS='|' read -r txn_id payment_id; do
         if [ -n "$txn_id" ] && [ -n "$payment_id" ]; then
-            fetch_payment_details "$txn_id" "$payment_id" "$COOKIE" "$CSRF_TOKEN" "$TEMP_DIR" &
+            fetch_payment_details "$txn_id" "$payment_id" "$COOKIE" "$CSRF_TOKEN" "$TEMP_DIR" "$DEBUG" &
 
             BATCH_COUNT=$((BATCH_COUNT + 1))
 
             # Wait every 10 requests
             if [ $((BATCH_COUNT % BATCH_SIZE)) -eq 0 ]; then
                 wait
-                echo "  Processed $BATCH_COUNT NPP transactions..."
+                if [ "$DEBUG" = true ]; then
+                    echo "  Processed $BATCH_COUNT NPP transactions..."
+                fi
             fi
         fi
     done <<< "$NPP_TRANSACTIONS"
@@ -279,17 +308,21 @@ else
     cp "$DESCRIPTIONS_FILE" "$FINAL_DESCRIPTIONS_FILE"
 fi
 
-echo ""
-echo "Transaction ID to Description mapping:"
-cat "$FINAL_DESCRIPTIONS_FILE"
-echo ""
+if [ "$DEBUG" = true ]; then
+    echo ""
+    echo "Transaction ID to Description mapping:"
+    cat "$FINAL_DESCRIPTIONS_FILE"
+    echo ""
+fi
 
 # Count how many descriptions we successfully extracted
 DESCRIPTION_COUNT=$(wc -l < "$FINAL_DESCRIPTIONS_FILE" | tr -d ' ')
-echo "Successfully extracted $DESCRIPTION_COUNT payment descriptions out of $NPP_COUNT NPP/OSKO transactions"
+if [ "$DEBUG" = true ]; then
+    echo "Successfully extracted $DESCRIPTION_COUNT payment descriptions out of $NPP_COUNT NPP/OSKO transactions"
+fi
 
 # Show which NPP transactions are missing descriptions
-if [ "$DESCRIPTION_COUNT" -lt "$NPP_COUNT" ]; then
+if [ "$DEBUG" = true ] && [ "$DESCRIPTION_COUNT" -lt "$NPP_COUNT" ]; then
     echo ""
     echo "NPP transactions missing descriptions:"
     if command -v jq &> /dev/null; then
@@ -308,14 +341,18 @@ if [ "$DESCRIPTION_COUNT" -lt "$NPP_COUNT" ]; then
         done
     fi
 fi
-echo ""
+if [ "$DEBUG" = true ]; then
+    echo ""
+fi
 
 # Store file paths for later use
-echo "Temp files created:"
-echo "  Transactions: $TRANSACTIONS_FILE"
-echo "  Descriptions: $FINAL_DESCRIPTIONS_FILE"
-echo "  Temp dir: $TEMP_DIR"
-echo ""
+if [ "$DEBUG" = true ]; then
+    echo "Temp files created:"
+    echo "  Transactions: $TRANSACTIONS_FILE"
+    echo "  Descriptions: $FINAL_DESCRIPTIONS_FILE"
+    echo "  Temp dir: $TEMP_DIR"
+    echo ""
+fi
 
 # Step 5: Fetch the OFX export
 echo "Fetching OFX export..."
@@ -324,11 +361,13 @@ echo "Fetching OFX export..."
 BEGIN_DATE_ENCODED=$(echo "$BEGIN_DATE" | sed 's/:/%3A/g')
 END_DATE_ENCODED=$(echo "$END_DATE" | sed 's/:/%3A/g')
 
-echo "Debug - Export parameters:"
-echo "  BeginDate: $BEGIN_DATE_ENCODED"
-echo "  EndDate: $END_DATE_ENCODED"
-echo "  Account: $ACCOUNT_NUMBER"
-echo "  CSRF Token (first 20 chars): ${CSRF_TOKEN:0:20}..."
+if [ "$DEBUG" = true ]; then
+    echo "Debug - Export parameters:"
+    echo "  BeginDate: $BEGIN_DATE_ENCODED"
+    echo "  EndDate: $END_DATE_ENCODED"
+    echo "  Account: $ACCOUNT_NUMBER"
+    echo "  CSRF Token (first 20 chars): ${CSRF_TOKEN:0:20}..."
+fi
 
 OFX_RESPONSE=$(curl -s 'https://digital.bankaust.com.au/platform.axd?u=transaction/ExportToOfx' \
   -X POST \
@@ -507,7 +546,4 @@ echo "  - Total transactions: $TRANSACTION_COUNT"
 echo "  - NPP/OSKO transactions: $NPP_COUNT"
 echo "  - Descriptions fetched: $DESCRIPTION_COUNT"
 echo "  - MEMO tags updated: $UPDATED_COUNT"
-echo ""
-echo "To compare the files, run:"
-echo "  diff $ORIGINAL_FILENAME $UPDATED_FILENAME"
 echo ""
