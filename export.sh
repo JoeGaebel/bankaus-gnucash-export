@@ -489,13 +489,20 @@ BEGIN {
 
 # Update MEMO tag if we have a description for this FITID
 /<MEMO>/ {
+    # Extract current memo text
+    memo_line = $0
+    gsub(/.*<MEMO>/, "", memo_line)
+    gsub(/<\/MEMO>.*/, "", memo_line)
+
+    # Remove "Osko Payment From " prefix (case-insensitive)
+    gsub(/^Osko Payment From /, "", memo_line)
+    gsub(/^osko payment from /, "", memo_line)
+    gsub(/^OSKO PAYMENT FROM /, "", memo_line)
+
+    # Trim trailing whitespace from memo
+    gsub(/[ \t]+$/, "", memo_line)
+
     if (current_fitid != "" && current_fitid in descriptions && descriptions[current_fitid] != "") {
-        # Extract current memo text
-        memo_line = $0
-        gsub(/.*<MEMO>/, "", memo_line)
-        gsub(/<\/MEMO>.*/, "", memo_line)
-        # Trim trailing whitespace from memo
-        gsub(/[ \t]+$/, "", memo_line)
         # Trim trailing whitespace from description
         desc = descriptions[current_fitid]
         gsub(/[ \t]+$/, "", desc)
@@ -506,8 +513,8 @@ BEGIN {
         current_fitid = ""
         next
     }
-    # If no description, print line as-is and reset FITID
-    print
+    # If no description, print cleaned memo
+    print "<MEMO>" memo_line
     current_fitid = ""
     next
 }
@@ -529,16 +536,21 @@ echo "Updated $UPDATED_COUNT MEMO tags with payment descriptions"
 echo ""
 
 # Step 7: Save the final OFX files
-ORIGINAL_FILENAME="bank_export_${YEAR}_${MONTH_PADDED}_original.ofx"
-UPDATED_FILENAME="bank_export_${YEAR}_${MONTH_PADDED}.ofx"
-
-cp "$OFX_FILE" "$ORIGINAL_FILENAME"
+UPDATED_FILENAME="bankAustralia-${MONTH_PADDED}-${YEAR}.ofx"
 cp "$UPDATED_OFX_FILE" "$UPDATED_FILENAME"
+
+# Only save original if debug mode
+if [ "$DEBUG" = true ]; then
+    ORIGINAL_FILENAME="bankAustralia-${MONTH_PADDED}-${YEAR}-original.ofx"
+    cp "$OFX_FILE" "$ORIGINAL_FILENAME"
+fi
 
 echo "✓ Export complete!"
 echo ""
 echo "Output files:"
-echo "  - Original: $ORIGINAL_FILENAME"
+if [ "$DEBUG" = true ]; then
+    echo "  - Original: $ORIGINAL_FILENAME"
+fi
 echo "  - Updated:  $UPDATED_FILENAME"
 echo ""
 echo "Summary:"
