@@ -404,16 +404,8 @@ if [ -z "$OFX_RESPONSE" ]; then
     exit 1
 fi
 
-# Check if response is base64 or plain text OFX
-if echo "$OFX_RESPONSE" | head -c 20 | grep -q "OFXHEADER"; then
-    # Response is already plain text OFX
-    echo "$OFX_RESPONSE" > "$OFX_FILE"
-    echo "OFX export downloaded (plain text)"
-else
-    # Response is base64 encoded
-    echo "$OFX_RESPONSE" | base64 -d > "$OFX_FILE"
-    echo "OFX export downloaded and decoded from base64"
-fi
+# Save the plain text OFX response
+echo "$OFX_RESPONSE" > "$OFX_FILE"
 
 echo "OFX file size: $(wc -c < "$OFX_FILE") bytes"
 
