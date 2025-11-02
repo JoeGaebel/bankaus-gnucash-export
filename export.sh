@@ -442,23 +442,13 @@ BEGIN {
     updated_count = 0
 }
 
-# Fix DTEND format to be consistent (YYYYMMDD000000 instead of YYYYMMDD235959)
-/<DTEND>/ {
-    dtend_line = $0
-    # Change format from YYYYMMDD235959 to YYYYMMDD000000
-    gsub(/235959/, "000000", dtend_line)
-    print dtend_line
-    next
-}
-
-# Track DTPOSTED to add DTUSER tag and store for FITID
+# Track DTPOSTED for FITID uniqueness
 /<DTPOSTED>/ {
-    print
     # Extract date and store for FITID uniqueness
     dtposted_value = $0
     gsub(/.*<DTPOSTED>/, "", dtposted_value)
     gsub(/<\/DTPOSTED>.*/, "", dtposted_value)
-    print "<DTUSER>" dtposted_value
+    print
     next
 }
 

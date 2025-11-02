@@ -38,17 +38,16 @@ This script solves both problems by:
 
 ### OFX File Modifications
 
-The script makes the following modifications to the exported OFX file:
+The script makes the following minimal modifications to the exported OFX file:
 
-1. **Adds DTUSER tags** - Inserts `<DTUSER>` tags after each `<DTPOSTED>` for better GnuCash compatibility
-2. **Makes FITIDs unique** - Changes FITID from simple sequential numbers to unique identifiers:
+1. **Makes FITIDs unique** - Changes FITID from simple sequential numbers to unique identifiers:
    - Original: `<FITID>1</FITID>`
    - Modified: `<FITID>1.20250930.382</FITID>` (includes date and amount)
-3. **Removes "Osko Payment From" prefix** - Cleans up MEMO fields by removing redundant prefixes
-4. **Appends payment references** - For NPP/OSKO transactions, appends the payment reference to the MEMO field:
+   - This is **critical** for GnuCash to accept transactions across multiple imports
+2. **Removes "Osko Payment From" prefix** - Cleans up MEMO fields by removing redundant prefixes
+3. **Appends payment references** - For NPP/OSKO transactions, appends the payment reference to the MEMO field:
    - Original: `<MEMO>Osko Payment From JOHN SMITH</MEMO>`
    - Modified: `<MEMO>JOHN SMITH - Invoice 1234</MEMO>`
-5. **Updates DTEND format** - Changes end date format from `YYYYMMDD235959` to `YYYYMMDD000000`
 
 ## How To Use
 
