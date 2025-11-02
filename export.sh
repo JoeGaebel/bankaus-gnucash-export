@@ -94,16 +94,27 @@ if [ "$DEBUG" = true ]; then
 fi
 
 # Step 2: Get curl command and extract authentication parameters
-echo "Save your curl command to a file called 'curl.txt' in the current directory."
+echo "Log into Bank Australia, expand the transactions toggle, and copy the request to platform.axd?u=account/getaccount as a cURL"
 echo "Press Enter when ready to continue..."
 read -r
 
-if [ ! -f "curl.txt" ]; then
-    echo "Error: curl.txt not found in current directory"
+# Read from clipboard (pbpaste on macOS, xclip on Linux)
+if command -v pbpaste &> /dev/null; then
+    CURL_INPUT=$(pbpaste)
+elif command -v xclip &> /dev/null; then
+    CURL_INPUT=$(xclip -selection clipboard -o)
+elif command -v xsel &> /dev/null; then
+    CURL_INPUT=$(xsel --clipboard --output)
+else
+    echo "Error: No clipboard utility found (pbpaste, xclip, or xsel)"
+    echo "Please install one of these utilities or use pbpaste (macOS)"
     exit 1
 fi
 
-CURL_INPUT=$(cat curl.txt)
+if [ -z "$CURL_INPUT" ]; then
+    echo "Error: Clipboard is empty"
+    exit 1
+fi
 
 # Extract Cookie header
 COOKIE=$(echo "$CURL_INPUT" | grep -o "Cookie: [^'\"]*" | sed 's/Cookie: //')
