@@ -1,6 +1,15 @@
-# Bank Australia Transaction Export Script
+# Bank Australia GnuCash OFX Export Script
 
 A bash script to export Bank Australia transactions with enhanced payment references and GnuCash-compatible unique transaction IDs.
+
+## ️⚠️ Warning ⚠️
+This script asks for authentication information from your logged in Bank Australia session. It uses this to get transactions and transaction information to produce an OFX file that can be used in GnuCash. As such, here's some obligatory legal statements:<br/><br/> Since this is obviously very sensitive information, you should look through the script and understand what it's doing. **Use at your own risk**. Be careful about copies or forks of this script as they may be used to spend money from your account. <br/><br/>   This script is provided for **personal use only** and is provided **AS-IS** with no guarantees. The author is not affiliated with Bank Australia and is not responsible for:
+- Any damages, financial loss, or account issues resulting from using this script
+- Violations of Bank Australia's Terms of Service
+- Malicious modifications made by third parties
+- Any consequences of unauthorized system access
+
+By using this script, you accept all responsibility and liability.
 
 ## Why This Script Exists
 
@@ -103,22 +112,7 @@ Run the script with `--debug` flag to see detailed information:
 ./export.sh --debug
 ```
 
-Debug mode shows:
-- Date range calculation details
-- Full authentication parameters (Cookie, CSRF Token, Account Number)
-- Individual NPP payment fetches as they happen
-- Batch processing progress
-- Transaction ID to description mapping table
-- List of NPP transactions missing descriptions
-- Temporary file paths
-- OFX export parameters
-- Original OFX file is saved for comparison
-
-This is useful for:
-- Troubleshooting authentication issues
-- Verifying payment references were fetched correctly
-- Debugging missing transactions
-- Understanding what the script is doing at each step
+Debug mode shows a plethora of information as it's fetched to help debug problems. Additionally, it saves the original OFX file that is exported prior to any modifications.
 
 ## Troubleshooting
 
@@ -132,7 +126,7 @@ This is useful for:
 
 - Make sure you copied the entire cURL command
 - Ensure you're copying from the correct network request
-- The request should be to `platform.axd?u=transaction%2FGetTransactionHistory`
+- The request should be to `platform.axd?u=account/getaccount` or `platform.axd?u=transaction/GetTransactionHistory` after clicking the transaction expand chevron next to the account.
 
 ### Transactions missing from import
 
